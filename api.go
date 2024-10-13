@@ -12,7 +12,7 @@ var lent = map[string][]string{
 	"Mr.Bean": {"Teddy"},
 }
 
-func main() {
+func startServer() {
 	http.HandleFunc("/api/takeback", handleTakeback)
 	http.HandleFunc("/api/give", handleGive)
 	http.HandleFunc("/api/newfriend", handleNewFriend)
