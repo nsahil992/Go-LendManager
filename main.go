@@ -1,114 +1,58 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json" // Importing the JSON package for encoding and decoding
+	"fmt"          // Importing the fmt package for formatted I/O
+	"net/http"     // Importing the net/http package for HTTP server and client
 )
 
+// lent holds the mapping of friends to items lent to them
+var lent = map[string][]string{
+	"Courage": {},
+	"Ben":     {"Watch"},
+	"Mr.Bean": {"Teddy"},
+}
+
 func main() {
+	// Setting up the HTTP handlers for different API endpoints
+	http.HandleFunc("/api/takeback", handleTakeback) // Handler for taking back an item
+	http.HandleFunc("/api/give", handleGive)         // Handler for lending an item
+	http.HandleFunc("/api/newfriend", handleNewFriend) // Handler for adding a new friend
 
-	startServer()
-	// The map stores friends and the items lent to them
-	lent := map[string][]string{
-		"Courage":  {},
-		"Ben":      {"Watch"},
-		"Mr.Bean":  {"Teddy"},
+	// Starting the server on port 8080
+	fmt.Println("Server started at :8080")
+	http.ListenAndServe(":8080", nil) // This line listens for incoming HTTP requests
+}
+
+// handleTakeback handles the request to take back an item from a friend
+func handleTakeback(w http.ResponseWriter, r *http.Request) {
+	friend := r.URL.Query().Get("friend") // Getting the friend's name from the query parameters
+	if items, ok := lent[friend]; ok && len(items) > 0 { // Check if the friend exists and has lent items
+		lent[friend] = lent[friend][:len(items)-1] // Remove the last item lent to the friend
+		response := map[string]string{"message": "Item taken back from " + friend} // Prepare the response
+		json.NewEncoder(w).Encode(response) // Encode the response as JSON and send it
+	} else {
+		http.Error(w, "No items found for this friend", http.StatusNotFound) // Return 404 if no items found
 	}
+}
 
-	for {
-		fmt.Println("What do you want to do? (takeback/give/newfriend/quit)")
-		var userAction string
-		fmt.Scan(&userAction) // Read user input for the action
+// handleGive handles the request to lend an item to a friend
+func handleGive(w http.ResponseWriter, r *http.Request) {
+	friend := r.URL.Query().Get("friend") // Getting the friend's name from the query parameters
+	item := r.URL.Query().Get("item") // Getting the item name from the query parameters
+	lent[friend] = append(lent[friend], item) // Append the item to the friend's list
+	response := map[string]string{"message": "Lent " + item + " to " + friend} // Prepare the response
+	json.NewEncoder(w).Encode(response) // Encode the response as JSON and send it
+}
 
-		if userAction == "quit" {
-			break // Exit the loop if user types "quit"
-		}
-
-		switch userAction {
-		case "takeback":
-			// List all friends
-			fmt.Println("These are your friends:")
-			for friend := range lent {
-				fmt.Println(friend)
-			}
-
-			// Ask for the friend's name
-			fmt.Println("Which friend did you lend to?")
-			var friendName string
-			fmt.Scan(&friendName)
-
-			if items, ok := lent[friendName]; ok {
-				if len(items) == 0 {
-					fmt.Printf("You haven't given anything to %s.\n", friendName)
-					continue
-				}
-
-				// Display the items lent to the friend
-				fmt.Printf("This is what you gave to %s:\n", friendName)
-				for _, item := range items {
-					fmt.Println(item)
-				}
-
-				// Ask which item to take back
-				fmt.Printf("What did you take back from %s?\n", friendName)
-				var itemName string
-				fmt.Scan(&itemName)
-
-				// Search for the item in the list
-				itemIndex := -1
-				for i, item := range lent[friendName] {
-					if item == itemName {
-						itemIndex = i
-						break
-					}
-				}
-
-				if itemIndex == -1 {
-					fmt.Println("Sorry, I didn't find that item.")
-				} else {
-					// Remove the item from the list
-					lent[friendName] = append(lent[friendName][:itemIndex], lent[friendName][itemIndex+1:]...)
-					fmt.Printf("Alright, I'll remember that you took %s from %s.\n", itemName, friendName)
-				}
-			} else {
-				fmt.Println("Sorry, I didn't find that friend.")
-			}
-
-		case "give":
-			// List all friends
-			fmt.Println("These are your friends:")
-			for friend := range lent {
-				fmt.Println(friend)
-			}
-
-			// Ask for the friend's name
-			fmt.Println("Which friend do you want to lend to?")
-			var friendName string
-			fmt.Scan(&friendName)
-
-			if _, ok := lent[friendName]; ok {
-				// Ask for the item to lend
-				fmt.Printf("What do you want to lend to %s?\n", friendName)
-				var itemName string
-				fmt.Scan(&itemName)
-
-				// Add the item to the friend's list
-				lent[friendName] = append(lent[friendName], itemName)
-				fmt.Printf("Got it! You lent %s to %s.\n", itemName, friendName)
-			} else {
-				fmt.Println("Sorry, I didn't find that friend.")
-			}
-
-		case "newfriend":
-			// Add a new friend
-			fmt.Println("Who is your new friend?")
-			var friendName string
-			fmt.Scan(&friendName)
-			lent[friendName] = []string{}
-			fmt.Printf("Added %s as a new friend.\n", friendName)
-
-		default:
-			fmt.Println("Sorry, I didn't understand that. (Valid choices: give/takeback/newfriend/quit)")
-		}
+// handleNewFriend handles the request to add a new friend
+func handleNewFriend(w http.ResponseWriter, r *http.Request) {
+	friend := r.URL.Query().Get("friend") // Getting the friend's name from the query parameters
+	if _, exists := lent[friend]; !exists { // Check if the friend already exists
+		lent[friend] = []string{} // Initialize the friend's list with an empty array
+		response := map[string]string{"message": friend + " added as a new friend"} // Prepare the response
+		json.NewEncoder(w).Encode(response) // Encode the response as JSON and send it
+	} else {
+		http.Error(w, "Friend already exists", http.StatusConflict) // Return 409 if friend already exists
 	}
-	fmt.Println("Goodbye!")
 }
