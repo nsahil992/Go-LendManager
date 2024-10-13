@@ -5,6 +5,8 @@ import (
 )
 
 func main() {
+
+	startServer()
 	// The map stores friends and the items lent to them
 	lent := map[string][]string{
 		"Courage":  {},
